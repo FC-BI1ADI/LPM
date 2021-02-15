@@ -1,0 +1,103 @@
+# 创建销售人员信息表 seller_info
+###################################
+# 字段信息如下：
+# seller_id 销售人员ID
+# name 姓名
+# gender 性别
+# id_number 身份证号
+# email 电子邮箱
+# cell_phone 移动电话
+# office_tel 办公电话
+# branch 分支机构
+# dept 部门
+# post 职位
+# seller_type 职能
+# title 任命职务
+# remarks 备注
+# SQL语句如下：
+CREATE TABLE seller_info (
+seller_id TEXT PRIMARY KEY,
+name TEXT,
+gender TEXT,
+id_number TEXT,
+email TEXT,
+cell_phone TEXT,
+office_tel TEXT,
+branch TEXT,
+dept TEXT,
+post  TEXT,
+seller_type TEXT,
+title TEXT,
+remarks TEXT
+);
+
+# 创建项目信息表 pj_info
+###################################
+# 字段信息如下：
+# pj_id 项目ID
+# pj_name 项目名称
+# pj_sn 项目编码
+# pj_type 项目类型：PipeLine项目或非PipeLine项目
+# final_client 最终用户
+# partner 合作伙伴
+# pj_amount 项目金额
+# pj_phase 项目阶段
+# plan_sign_time 预计签约时间
+# seller_id 销售人员ID（人员编号）
+# remarks 备注
+# SQL语句如下：
+CREATE TABLE pj_info (
+pj_id TEXT PRIMARY KEY,
+pj_name TEXT,
+pj_sn TEXT,
+pj_type TEXT,
+final_client TEXT,
+partner TEXT,
+pj_amount REAL,
+pj_phase TEXT,
+plan_sign_time TEXT,
+seller_id TEXT,
+remarks TEXT
+);
+
+# 创建产品信息表 pd_info
+###################################
+# 字段信息如下：
+# pd_id 产品ID（对应系统中的存货编码）
+# pd_name 产品名称
+# pd_ser 产品系列
+# pd_model 规格型号
+# pd_code 产品代码
+# status 产品状态
+# stock_count 存货数量
+# remarks 备注
+# SQL语句如下：
+CREATE TABLE pd_info (
+pd_id TEXT PRIMARY KEY,
+pd_name TEXT,
+pd_ser TEXT,
+pd_model TEXT,
+pd_code TEXT,
+status TEXT,
+stock_count INTEGER,
+remarks TEXT
+);
+
+# 创建项目支持表 pj_sustain
+###################################
+# 字段信息如下：
+# ss_id 项目支持信息ID
+# pj_id 项目ID
+# pd_id 产品ID
+# status 支持信息当前状态
+# need_count 需求数量
+# remarks 备注
+# SQL语句如下：
+CREATE TABLE pj_sustain (
+ss_id INTEGER PRIMARY KEY AUTOINCREMENT,
+pj_id TEXT,
+pd_id TEXT,
+status TEXT,
+need_count INTEGER,
+remarks TEXT
+);
