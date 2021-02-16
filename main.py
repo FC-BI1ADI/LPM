@@ -6,7 +6,8 @@ from LPMGoOutRecodeCheckkDlg import LPMGoOutRecodeCheckkDlg
 import sqlite3
 import pandas as pd
 import os
-
+import openpyxl
+import comm
 
 # 程序规范写法统一设置：
 mainFrameSize = (1024, 768)
@@ -38,6 +39,7 @@ table.gridtable td {
 </style>
 '''
 
+
 # 主窗口类定义
 class MainFrame(wx.Frame):
 
@@ -63,7 +65,7 @@ class MainFrame(wx.Frame):
         # 创建菜单栏
         self.makeMenuBar()
         # 创建工具栏
-        self.makeToolBar()
+        # self.makeToolBar()
         # 创建状态栏
         statusBar = self.CreateStatusBar()
         statusBar.SetStatusText("北京同有飞骥科技股份有限公司区域销售管理中心")
@@ -71,83 +73,77 @@ class MainFrame(wx.Frame):
     def makeMenuBar(self):
         # 1.文件菜单
         fileMenu = wx.Menu()
-        # 1.1 用户管理菜单项
-        userManageItem = fileMenu.Append(wx.ID_ANY,"用户管理", "LPM系统用户管理")
-        # 1.2 数据库备份菜单项
+        # 1.1 数据库备份菜单项
         dbBackupItem = fileMenu.Append(wx.ID_ANY, "数据库备份", "备份本地SQLite3数据库")
-        # 1.3 菜单分隔线
+        # 菜单分隔线
         fileMenu.AppendSeparator()
-        # 1.4 选项
-        optionItem = fileMenu.Append((wx.ID_ANY),"选项", "系统选项设置")
-        # 1.5 退出菜单项
+        # 1.2 选项
+        optionItem = fileMenu.Append((wx.ID_ANY), "选项", "系统选项设置")
+        # 1.3 退出菜单项
         exitItem = fileMenu.Append(wx.ID_EXIT)
 
-        # 2.汇总报表菜单
-        reportMenu = wx.Menu()
-        # 2.1 仪表盘dashboard菜单项
-        dashboardItem = reportMenu.Append(wx.ID_ANY, "项目仪表盘", "显示项目统计信息")
+        # 2.统计查询菜单
+        queryMenu = wx.Menu()
+        # 2.1 项目看板菜单项
+        dashboardItem = queryMenu.Append(wx.ID_ANY, "项目看板", "显示项目统计信息")
 
-        # 3.项目管理菜单
-        projectMenu = wx.Menu()
-        # 3.1 新项目登录菜单项
-        newProjectItem = projectMenu.Append(wx.ID_ANY, "新项目登录" ,"手动创建新项目")
-        # 3.2 项目信息维护菜单项
-        projectInfoItem = projectMenu.Append(wx.ID_ANY, "项目信息维护", "对项目库中信息进行CRUD操作")
-        # 3.3 菜单分隔符
-        projectMenu.AppendSeparator()
-        # 3.4 项目信息浏览菜单项
-        projectListItem = projectMenu.Append(wx.ID_ANY, "项目信息浏览", "以列表形式显示项目库信息")
+        # 2.2 项目信息浏览菜单项
+        projectListItem = queryMenu.Append(wx.ID_ANY, "项目信息浏览", "以列表形式显示人员库信息")
+        # 2.3 人员信息浏览菜单项
+        staffListItem = queryMenu.Append(wx.ID_ANY, "人员信息浏览", "以列表形式显示人员库信息")
+        # 2.4 产品/服务信息浏览菜单项
+        productListItem = queryMenu.Append(wx.ID_ANY, "产品/服务信息浏览", "以列表形式显示人员库信息")
 
-        # 4.人员管理菜单
-        staffMenu = wx.Menu()
-        # 4.1 新人员菜单项
-        newStaffItem = staffMenu.Append(wx.ID_ANY, "新人员登录", "将新的销售人员登录进人员信息库中")
-        # 4.2 人员信息修改菜单项
-        staffInfoItem = staffMenu.Append(wx.ID_ANY, "人员信息修改", "修改人员信息库中的销售人员信息")
-        # 4.3 人员注销菜单项
-        staffDelItem = staffMenu.Append(wx.ID_ANY, "人员注销", "在人员信息库中标注已离职人员")
-        # 4.4 菜单分隔线
-        staffMenu.AppendSeparator()
-        # 4.5 人员信息浏览菜单项
-        staffListItem = staffMenu.Append(wx.ID_ANY, "人员信息浏览", "以列表形式显示人员库信息")
+        # 3.分发汇总菜单（splite切分、send发送、summary汇总)
+        sssMenu = wx.Menu()
+        # 3.1 提取信息菜单项
+        spliteItem = sssMenu.Append(wx.ID_ANY, "Step 1: 提取信息", "从中心数据库中筛选提取信息并导出到EXCEL文件中")
+        # 3.2 电邮发送菜单项
+        sendItem = sssMenu.Append(wx.ID_ANY, "Step 2: 电邮发送", "将导出的EXCEL发送到指定人员的邮箱中")
+        # 菜单分隔线
+        sssMenu.AppendSeparator()
+        # 3.3 汇集更新菜单项
+        summaryItem = sssMenu.Append(wx.ID_ANY, "Step 3: 汇集更新", "汇集EXCEL文件并更新中心数据库中的信息")
 
+        # 4.数据维护菜单
+        dbMenu = wx.Menu()
+        # 4.1 项目数据导出菜单项
+        outputProjectItem = dbMenu.Append(wx.ID_ANY, "(O) 项目数据导出 >>>", "将中心数据库中的项目信息导出至EXCEL文件中")
+        # 4.2 项目数据导入菜单项
+        inputProjectItem = dbMenu.Append(wx.ID_ANY, "(I) 项目数据导入 <<<", "将EXCEL文件中项目信息导入至中心数据库")
+        # 菜单分隔线
+        dbMenu.AppendSeparator()
+        # 4.3 人员数据导出菜单项
+        outputStaffItem = dbMenu.Append(wx.ID_ANY, "(O) 人员数据导出 >>>", "将中心数据库中的人员信息导出至EXCEL文件中")
+        # 4.4 项目数据导入菜单项
+        inputStaffItem = dbMenu.Append(wx.ID_ANY, "(I) 人员数据导入 <<<", "将EXCEL文件中人员信息导入至中心数据库")
+        # 菜单分隔线
+        dbMenu.AppendSeparator()
+        # 4.5 产品/服务数据导出菜单项
+        outputProductItem = dbMenu.Append(wx.ID_ANY, "(O) 产品/服务数据导出 >>>", "将中心数据库中的产品/服务信息导出至EXCEL文件中")
+        # 4.6 项目数据导入菜单项
+        inputProductItem = dbMenu.Append(wx.ID_ANY, "(I) 产品/服务数据导入 <<<", "将EXCEL文件中产品/服务信息导入至中心数据库")
 
-        # 5.产品管理菜单
-        productMenu = wx.Menu()
-        # 5.1 新产品登录菜单项
-        newProductItem = productMenu.Append(wx.ID_ANY, "新产品/服务登录", "将新的产品或服务信息登录进产品信息库中")
-        # 5.2 产品信息修改菜单项
-        productInfoItem = productMenu.Append(wx.ID_ANY, "产品/服务信息修改", "修改产品信息库中的产品或服务信息")
-        # 5.3 停产产品标注菜单项
-        productDelItem = productMenu.Append(wx.ID_ANY, "产品停产/服务中止", "在产品信息库中标注已停产产品或中止服务")
-        # 5.4 菜单分隔线
-        productMenu.AppendSeparator()
-        # 5.5 产品/服务信息浏览
-        productListItem = productMenu.Append(wx.ID_ANY, "产品/服务信息浏览", "以列表形式显示产品或服务信息")
-
-        # 6.工具菜单
+        # 5.工具菜单
         toolsMenu = wx.Menu()
-
-        # 6.1 SQL语句执行菜单项
+        # 5.1 SQL语句执行菜单项
         sqlExecItem = toolsMenu.Append(wx.ID_ANY, "SQL执行", "对当前数据库直接执行SQL语句")
-        # 6.2 外出记录单较验菜单项
+        # 5.2 外出记录单较验菜单项
         gooutRecChkItem = toolsMenu.Append(wx.ID_ANY, "外出记录单较验", "比对外出记录单中登记的拜访单位与登记地址")
 
-
-        # 7.帮助菜单
+        # 6.帮助菜单
         helpMenu = wx.Menu()
-        # 7.1 操作说明菜单项
+        # 6.1 操作说明菜单项
         helpDocItem = helpMenu.Append(wx.ID_ANY, "帮助文档", "显示操作说明的帮助文档")
-        # 7.2 about菜单项
+        # 6.2 about菜单项
         aboutItem = helpMenu.Append(wx.ID_ABOUT)
 
         # 菜单栏
         menuBar = wx.MenuBar()
         menuBar.Append(fileMenu, "文件")
-        menuBar.Append(reportMenu, "汇总报表")
-        menuBar.Append(projectMenu, "项目管理")
-        menuBar.Append(staffMenu, "人员管理")
-        menuBar.Append(productMenu, "产品/服务管理")
+        menuBar.Append(queryMenu, "统计查询")
+        menuBar.Append(sssMenu, "分发汇总")
+        menuBar.Append(dbMenu, "数据维护")
         menuBar.Append(toolsMenu, "工具")
         menuBar.Append(helpMenu, "帮助")
 
@@ -158,42 +154,23 @@ class MainFrame(wx.Frame):
         # 1.文件菜单
         self.Bind(wx.EVT_MENU, self.OnDbBackup, dbBackupItem)
         self.Bind(wx.EVT_MENU, self.OnExit, exitItem)
-        # 2.汇总报表菜单
-
-        # 3.项目管理菜单
+        # 2.统计查询菜单
         self.Bind(wx.EVT_MENU, self.OnProjectList, projectListItem)
-
-        # 4.人员管理菜单
-        self.Bind(wx.EVT_MENU, self.OnNewSeller, newStaffItem)
         self.Bind(wx.EVT_MENU, self.OnStaffList, staffListItem)
 
-        # 5.产品/服务管理菜单
+        # 3.分发汇总菜单
 
-        # 6.工具菜单
-        self.Bind(wx.EVT_MENU,self.OnGoOutCheck, gooutRecChkItem)
+        # 4.数据维护菜单
+        self.Bind(wx.EVT_MENU, self.OnProjectOutput, outputProjectItem)
+        self.Bind(wx.EVT_MENU, self.OnProjectInput, inputProjectItem)
+        self.Bind(wx.EVT_MENU, self.OnStaffOutput, outputStaffItem)
+        self.Bind(wx.EVT_MENU, self.OnStaffInput, inputStaffItem)
 
-        # 7.帮助菜单
+        # 5.工具菜单
+        self.Bind(wx.EVT_MENU, self.OnGoOutCheck, gooutRecChkItem)
+
+        # 6.帮助菜单
         self.Bind(wx.EVT_MENU, self.OnAbout, aboutItem)
-
-    def makeToolBar(self):
-        toolBar = self.CreateToolBar(wx.TB_HORIZONTAL, wx.ID_ANY)
-        # 添加新项目工具项
-        newProjectTool = toolBar.AddTool(wx.ID_ANY, "添加新项目信息", wx.Bitmap(r".\icons\newProject.png"),
-                                         shortHelp="添加新项目信息", kind=wx.ITEM_NORMAL)
-        # 显示人员信息工具项
-        sellerInfoTool = toolBar.AddTool(wx.ID_ANY, "显示人员信息", wx.Bitmap(r".\icons\users.png"),
-                                         shortHelp="显示销售人员信息", kind=wx.ITEM_NORMAL)
-        # 工具栏分隔符
-        toolBar.AddSeparator()
-        # 数据库备份工具项
-        dbBackupTool = toolBar.AddTool(wx.ID_ANY, "数据库备份", wx.Bitmap(r".\icons\dbBackup.png"), shortHelp="数据库备份",
-                                       kind=wx.ITEM_NORMAL)
-        toolBar.Realize()
-
-        # 工具栏事件消息绑定
-        self.Bind(wx.EVT_TOOL, self.OnNewSeller, newProjectTool)
-        self.Bind(wx.EVT_TOOL, self.OnAbout, sellerInfoTool)
-        self.Bind(wx.EVT_TOOL, self.OnAbout, dbBackupTool)
 
     ############################## EVENT DEFINE ##############################
     def OnExit(self, event):
@@ -210,11 +187,11 @@ class MainFrame(wx.Frame):
         conn = sqlite3.connect('./data/lpm_c.db')
         query_sql = "SELECT * FROM T_Projects"
         # print(query_sql)
-        project_df =  pd.read_sql_query(query_sql, conn)
+        project_df = pd.read_sql_query(query_sql, conn)
         conn.close()
         # 调整DF显示表头
-        project_df.rename(inplace=True, columns = {
-            'pid':'项目ID',
+        project_df.rename(inplace=True, columns={
+            'pid': '项目ID',
             'name': '项目名称',
             'p_no': '项目编码',
             'p_type': '项目类型',
@@ -227,20 +204,21 @@ class MainFrame(wx.Frame):
             'remarks': '备注',
         })
         # 调整DF显示顺序
-        project_df = project_df[['项目ID','项目名称','项目编码','项目类型','最终用户','合作伙伴','项目金额','项目阶段','预计签约时间','员工编号','备注']]
+        project_df = project_df[
+            ['项目ID', '项目名称', '项目编码', '项目类型', '最终用户', '合作伙伴', '项目金额', '项目阶段', '预计签约时间', '员工编号', '备注']]
         # 在浏览器区域显示staff_df
-        self.browser.SetPage(project_df.to_html(index=False,classes='gridtable') + df_style,'')
+        self.browser.SetPage(project_df.to_html(index=False, classes='gridtable') + df_style, '')
 
     def OnStaffList(self, event):
         # 连接LPM数据库
         conn = sqlite3.connect('./data/lpm_c.db')
         query_sql = "SELECT * FROM T_Staffs"
         # print(query_sql)
-        staff_df =  pd.read_sql_query(query_sql, conn)
+        staff_df = pd.read_sql_query(query_sql, conn)
         conn.close()
         # 调整DF显示表头
-        staff_df.rename(inplace=True, columns = {
-            'sno':'员工编号',
+        staff_df.rename(inplace=True, columns={
+            'sno': '员工编号',
             'name': '姓名',
             'gender': '性别',
             'id_number': '身份信息',
@@ -255,23 +233,181 @@ class MainFrame(wx.Frame):
             'remarks': '备注',
         })
         # 调整DF显示顺序
-        staff_df = staff_df[['员工编号','姓名','性别','身份信息','邮箱','手机','办公电话','分支机构','部门','职位','任命职务','人员类别','备注']]
+        staff_df = staff_df[['员工编号', '姓名', '性别', '身份信息', '邮箱', '手机', '办公电话', '分支机构', '部门', '职位', '任命职务', '人员类别', '备注']]
         # 在浏览器区域显示staff_df
-        self.browser.SetPage(staff_df.to_html(index=False,classes='gridtable') + df_style,'')
+        self.browser.SetPage(staff_df.to_html(index=False, classes='gridtable') + df_style, '')
+
+    def OnProjectOutput(self, event):
+        # 从中心数据库中读取T_Projects表，并将所有数据导出指定excel文件中
+        # step1：获取保存文件对话框并获取存取路径
+        with wx.FileDialog(self, "导出至EXCEL文件", wildcard="EXCEL files (*.xlsx)|*.xlsx",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            else:
+                pathname = fileDialog.GetPath()
+                print(pathname)
+        # step2：从数据库中T_Projects表中读取数据至pandas DataFrame中
+        conn = sqlite3.connect('./data/lpm_c.db')
+        query_sql = "SELECT * FROM T_Projects"
+        cursor = conn.execute(query_sql)
+        df_project = pd.DataFrame(cursor.fetchall())
+        df_project.columns = ["PID", "项目名称", "项目编号", "项目类型", "最终客户", "合作伙伴", "项目金额", "项目阶段", "预计签约时间", "SNO", "备注"]
+        print(df_project)
+        # 将人员编号换成编号加人名的格式，便于查阅和修改
+        query_sql = "SELECT sno,name FROM T_Staffs"
+        cursor = conn.execute(query_sql)
+        df_staff = pd.DataFrame(cursor.fetchall())
+        df_staff.columns = ["SNO", "姓名"]
+        print(df_staff)
+        # 使用合并联合查询人员姓名
+        df_output = df_project.merge(df_staff, how="left", on="SNO")
+        # 调整output输出顺序
+        df_output = df_output[["PID", "项目名称", "项目编号", "项目类型", "最终客户", "合作伙伴", "项目金额", "项目阶段", "预计签约时间", "SNO", "姓名", "备注"]]
+        print(df_output)
+        # step3：导出df中的数据至EXCEL文件中
+        df_output.to_excel(pathname, index=False)
+        # step4: 提示导出成功
+        wx.MessageBox("项目信息已导出至【%s】文件中！" % (pathname), "数据导出", wx.OK | wx.ICON_INFORMATION)
+
+    def OnProjectInput(self, event):
+        # 扫描指定的EXCEL数据表，并修改中心数据库中的T_Projects表
+        # step1：获取需导入的EXCEL数据表文件路径
+        with wx.FileDialog(self, "选择导入EXCEL文件", wildcard="EXCEL files (*.xlsx)|*.xlsx", style=wx.FD_OPEN) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            else:
+                pathname = fileDialog.GetPath()
+                print(pathname)
+        # step2：读入EXCEL文件至pandas中，依次扫描每行数据并根据情况写入中心数据库
+        # 若找到对应的项目则用EXCEL文件中的数据整行覆盖中心数据库对应条目
+        # 若发现NEW标识或PID为空，则将EXCEL文件中的数据整行添加到中心数据库中
+        df = pd.read_excel(pathname)
+        # step3：对dataframe中的数据进行预处理，主要是去除重复的数据行、日期型数据进行字符串转化（YYYY-MM-DD)
+        # 删除姓名列
+        print(df)
+        df.drop("姓名",inplace=True,axis=1)
+        print(df)
+        # step4: 扫描预处理后的df,若标志为NEW，则添加本行记录至中心数据库中，否则更新中心数据库中的信息
+
+        for idx_df in range(df.shape[0]):
+            # T_Projects表的结构：pid,name,p_no,p_type,final_client,partner,amount,phase,plan_sign_time,sno,remarks
+            pid = df.iloc[idx_df, 0]
+            name = df.iloc[idx_df, 1]
+            p_no = df.iloc[idx_df, 2]
+            p_type = df.iloc[idx_df, 3]
+            final_client = df.iloc[idx_df, 4]
+            partner = df.iloc[idx_df, 5]
+            amount = df.iloc[idx_df, 6]
+            phase = df.iloc[idx_df, 7]
+            plan_sign_time = df.iloc[idx_df, 8]
+            sno = df.iloc[idx_df, 9]
+            remarks = df.iloc[idx_df, 10]
+
+            if pid == "NEW":
+                # 获取项目库中的PID：8位日期+4位流水码
+                pid = comm.get_pid()
+                # 构建SQL语句：INSERT
+                query_sql = "INSERT INTO T_Projects (pid,name,p_no,p_type,final_client,partner,amount,phase,plan_sign_time,sno,remarks) values ('%s','%s','%s','%s','%s','%s',%s,'%s','%s','%s','%s')" % (
+                    pid, name, p_no, p_type, final_client, partner, amount, phase, plan_sign_time, sno, remarks)
+            else:
+                # 构建SQL语句：UPDATE
+                query_sql = "UPDATE T_Projects SET name='%s',p_no='%s',p_type='%s',final_client='%s',partner='%s',amount=%s,phase='%s',plan_sign_time='%s',sno='%s',remarks='%s' WHERE pid='%s'" % (
+                    name, p_no, p_type, final_client, partner, amount, phase, plan_sign_time, sno, remarks, pid)
+            # 显示SQL语句
+            print(query_sql)
+            conn = sqlite3.connect('./data/lpm_c.db')
+            conn.execute(query_sql)
+            conn.commit()
+        # step5: 显示提示信息
+        wx.MessageBox("项目信息已导入中心数据库！", "数据导入", wx.OK | wx.ICON_INFORMATION)
+
+    def OnStaffOutput(self, event):
+        # 从中心数据库中读取T_Staffs表，并将所有数据导出指定excel文件中
+        # step1：获取保存文件对话框并获取存取路径
+        with wx.FileDialog(self, "导出至EXCEL文件", wildcard="EXCEL files (*.xlsx)|*.xlsx",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            else:
+                pathname = fileDialog.GetPath()
+                print(pathname)
+        # step2：从数据库中T_Staffs表中读取数据至pandas DataFrame中
+        conn = sqlite3.connect('./data/lpm_c.db')
+        query_sql = "SELECT * FROM T_Staffs"
+        cursor = conn.execute(query_sql)
+        df_staff = pd.DataFrame(cursor.fetchall())
+        df_staff.columns = ["SNO", "姓名", "性别", "身份证号", "电子邮件", "移动电话", "办公电话", "分支机构", "部门", "职位", "任命职务","备注","人员类别"]
+        print(df_staff)
+        df_output = df_staff[["SNO", "姓名", "性别", "身份证号", "电子邮件", "移动电话", "办公电话", "分支机构", "部门", "职位", "任命职务","人员类别","备注"]]
+        # step3：导出df中的数据至EXCEL文件中
+        df_output.to_excel(pathname, index=False)
+        # step4: 提示导出成功
+        wx.MessageBox("人员信息已导出至【%s】文件中！" % (pathname), "数据导出", wx.OK | wx.ICON_INFORMATION)
+
+    def OnStaffInput(self, event):
+        # 扫描指定的EXCEL数据表，并修改中心数据库中的T_Staffs表
+        # step1：获取需导入的EXCEL数据表文件路径
+        with wx.FileDialog(self, "选择导入EXCEL文件", wildcard="EXCEL files (*.xlsx)|*.xlsx", style=wx.FD_OPEN) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            else:
+                pathname = fileDialog.GetPath()
+                print(pathname)
+        # step2：读入EXCEL文件至pandas中，依次扫描每行数据并根据情况写入中心数据库
+        # 若找到对应的项目则用EXCEL文件中的数据整行覆盖中心数据库对应条目
+        # 若发现NEW标识或PID为空，则将EXCEL文件中的数据整行添加到中心数据库中
+        df = pd.read_excel(pathname)
+        # step3：对dataframe中的数据进行预处理，主要是去除重复的数据行、日期型数据进行字符串转化（YYYY-MM-DD)
+
+        # print(df)
+        # step4: 扫描预处理后的df,若标志为NEW，则添加本行记录至中心数据库中，否则更新中心数据库中的信息
+
+        for idx_df in range(df.shape[0]):
+            # T_Projects表的结构：pid,name,p_no,p_type,final_client,partner,amount,phase,plan_sign_time,sno,remarks
+            sno = df.iloc[idx_df, 0]
+            name = df.iloc[idx_df, 1]
+            gender = df.iloc[idx_df, 2]
+            id_number = df.iloc[idx_df, 3]
+            email = df.iloc[idx_df, 4]
+            cell_phone = df.iloc[idx_df, 5]
+            office_tel = df.iloc[idx_df, 6]
+            branch = df.iloc[idx_df, 7]
+            dept = df.iloc[idx_df, 8]
+            post = df.iloc[idx_df, 9]
+            title = df.iloc[idx_df,10]
+            s_type = df.iloc[idx_df,11]
+            remarks = df.iloc[idx_df, 12]
+            print(s_type,remarks)
+            if sno == "NEW":
+                # 用户备注中提取新的人员编号
+                sno = remarks
+                # 构建SQL语句：INSERT
+                query_sql = "INSERT INTO T_Staffs (sno,name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks) values ('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')" % (sno,name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks)
+            else:
+                # 构建SQL语句：UPDATE
+                query_sql = "UPDATE T_Staffs SET name='%s',gender='%s',id_number='%s',email='%s',cell_phone='%s',office_tel='%s',branch='%s',dept='%s',post='%s',title='%s',s_type='%s',remarks='%s' WHERE sno='%s'" % (name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks, sno)
+            # 显示SQL语句
+            print(query_sql)
+            conn = sqlite3.connect('./data/lpm_c.db')
+            conn.execute(query_sql)
+            conn.commit()
+        # step5: 显示提示信息
+        wx.MessageBox("项目信息已导入中心数据库！", "数据导入", wx.OK | wx.ICON_INFORMATION)
 
     def OnAbout(self, event):
-        wx.MessageBox("区域项目管理系统主要用于区域管理中心项目集中式管理。\nVersion 1.0",
-                      "区域项目管理系统",
+        wx.MessageBox("区域项目管理系统主要用于区域管理中心项目集中式管理。",
+                      "区域项目管理系统 Version 1.0",
                       wx.OK | wx.ICON_INFORMATION)
 
-    def OnNewProject(self, event):
-        pass
-
-    def OnNewSeller(self, event):
-        # 建立新增用户对话框类
-        newSellerDlg = LPMAddNewSellerDlg(self)
-        # 显示对话框
-        newSellerDlg.ShowModal()
+    # def OnNewProject(self, event):
+    #     pass
+    #
+    # def OnNewSeller(self, event):
+    #     # 建立新增用户对话框类
+    #     newSellerDlg = LPMAddNewSellerDlg(self)
+    #     # 显示对话框
+    #     newSellerDlg.ShowModal()
 
     def OnGoOutCheck(self, event):
         # 创建外出记录单较验对话框类
