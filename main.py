@@ -159,7 +159,9 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnStaffList, staffListItem)
 
         # 3.分发汇总菜单
-
+        self.Bind(wx.EVT_MENU, self.OnSplite, spliteItem)
+        self.Bind(wx.EVT_MENU, self.OnSend, sendItem)
+        self.Bind(wx.EVT_MENU, self.OnSummary, summaryItem)
         # 4.数据维护菜单
         self.Bind(wx.EVT_MENU, self.OnProjectOutput, outputProjectItem)
         self.Bind(wx.EVT_MENU, self.OnProjectInput, inputProjectItem)
@@ -237,6 +239,77 @@ class MainFrame(wx.Frame):
         # 在浏览器区域显示staff_df
         self.browser.SetPage(staff_df.to_html(index=False, classes='gridtable') + df_style, '')
 
+
+    def OnSplite(self,event):
+        # 获取T_Sale表中的所有记录，并扩展构建成宽表的dataframe
+        conn = sqlite3.connect('./data/lpm_c.db')
+        query_sql = "SELECT * FROM T_Sale"
+        cursor = conn.execute(query_sql)
+        df_sale = pd.DataFrame(cursor.fetchall())
+        df_sale.columns = ["PPID", "PID", "PDNO", "数量"]
+        print(df_sale)
+        # 通过ID标识，联合扩展成df_sale_w宽表
+        query_sql = "SELECT pid,name,p_no FROM T_Projects"
+        cursor = conn.execute(query_sql)
+        df_projects = pd.DataFrame(cursor.fetchall())
+        df_projects.columns = ["PID","项目名称","项目编号"]
+        print(df_projects)
+        df_sale_w = df_sale.merge(df_projects,how='left',on='PID')
+        print(df_sale_w)
+        # 关闭数据库连接
+        conn.close()
+
+    def OnSend(self,event):
+        pass
+
+    def OnSummary(self,event):
+        # step1：获取需导入的EXCEL数据表文件路径
+        with wx.FileDialog(self, "选择导入EXCEL文件", wildcard="EXCEL files (*.xlsx)|*.xlsx", style=wx.FD_OPEN) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            else:
+                pathname = fileDialog.GetPath()
+                print(pathname)
+        # step2：读入EXCEL文件至pandas中，依次扫描每行数据并根据情况写入中心数据库
+        # 处理非Pipeline项目
+        df = pd.read_excel(pathname,sheet_name="非Pipeline项目")
+        df.fillna('',inplace=True)
+        print(df.head())
+        # 建立数据库连接
+        conn = sqlite3.connect('./data/lpm_c.db')
+        # 扫描df行数据，根据情况改写T_Sale表
+        for idx_df in range(df.shape[0]):
+            ppid = df.iloc[idx_df,0]
+            pid = df.iloc[idx_df,1]
+            p_no = df.iloc[idx_df,2]
+            p_name = df.iloc[idx_df, 3]
+            p_final_client = df.iloc[idx_df, 4]
+            p_partner = df.iloc[idx_df, 5]
+            s_dept = df.iloc[idx_df, 6]
+            s_name = df.iloc[idx_df, 7]
+            d_series = df.iloc[idx_df, 8]
+            d_model = df.iloc[idx_df, 9]
+            d_pd_code = df.iloc[idx_df,10]
+            pdid = df.iloc[idx_df,11]
+            d_pd_count = df.iloc[idx_df,12]
+            p_amount = df.iloc[idx_df,13]
+            p_phase = df.iloc[idx_df, 14]
+            p_plan_sign_time = df.iloc[idx_df, 15]
+            d_delivery_time = df.iloc[idx_df,16]
+            remarks = df.iloc[idx_df,17]
+
+            if  ppid == "NEW":
+                ppid = comm.get_ppid()
+                query_sql = "INSERT INTO T_Sale (ppid,pid,pdno,pd_count,status,c_date,d_date,remarks) values('%s','%s','%s','%s','%s','%s','%s','%s')"%(ppid,pid,pdid,d_pd_count,"ADD",comm.get_today_str(),d_delivery_time,remarks)
+                print(query_sql)
+                conn.execute(query_sql)
+                conn.commit()
+            else:
+                pass
+
+        # 关闭数据库连接
+        conn.close()
+
     def OnProjectOutput(self, event):
         # 从中心数据库中读取T_Projects表，并将所有数据导出指定excel文件中
         # step1：获取保存文件对话框并获取存取路径
@@ -248,11 +321,13 @@ class MainFrame(wx.Frame):
                 pathname = fileDialog.GetPath()
                 print(pathname)
         # step2：从数据库中T_Projects表中读取数据至pandas DataFrame中
+        # 建立数据库连接
         conn = sqlite3.connect('./data/lpm_c.db')
         query_sql = "SELECT * FROM T_Projects"
         cursor = conn.execute(query_sql)
         df_project = pd.DataFrame(cursor.fetchall())
-        df_project.columns = ["PID", "项目名称", "项目编号", "项目类型", "最终客户", "合作伙伴", "项目金额", "项目阶段", "预计签约时间", "SNO", "备注"]
+        df_project.columns = ["PID", "项目名称", "项目编码", "项目类型", "最终客户", "合作伙伴", "项目金额", "项目阶段", "预计签约时间", "SNO", "备注"]
+
         print(df_project)
         # 将人员编号换成编号加人名的格式，便于查阅和修改
         query_sql = "SELECT sno,name FROM T_Staffs"
@@ -260,10 +335,13 @@ class MainFrame(wx.Frame):
         df_staff = pd.DataFrame(cursor.fetchall())
         df_staff.columns = ["SNO", "姓名"]
         print(df_staff)
+        # 关闭数据库连接
+        conn.close()
         # 使用合并联合查询人员姓名
         df_output = df_project.merge(df_staff, how="left", on="SNO")
         # 调整output输出顺序
-        df_output = df_output[["PID", "项目名称", "项目编号", "项目类型", "最终客户", "合作伙伴", "项目金额", "项目阶段", "预计签约时间", "SNO", "姓名", "备注"]]
+        df_output = df_output[
+            ["PID", "项目名称", "项目编码", "项目类型", "最终客户", "合作伙伴", "项目金额", "项目阶段", "预计签约时间", "SNO", "姓名", "备注"]]
         print(df_output)
         # step3：导出df中的数据至EXCEL文件中
         df_output.to_excel(pathname, index=False)
@@ -286,10 +364,11 @@ class MainFrame(wx.Frame):
         # step3：对dataframe中的数据进行预处理，主要是去除重复的数据行、日期型数据进行字符串转化（YYYY-MM-DD)
         # 删除姓名列
         print(df)
-        df.drop("姓名",inplace=True,axis=1)
+        df.drop("姓名", inplace=True, axis=1)
         print(df)
         # step4: 扫描预处理后的df,若标志为NEW，则添加本行记录至中心数据库中，否则更新中心数据库中的信息
-
+        # 建立数据库连接
+        conn = sqlite3.connect('./data/lpm_c.db')
         for idx_df in range(df.shape[0]):
             # T_Projects表的结构：pid,name,p_no,p_type,final_client,partner,amount,phase,plan_sign_time,sno,remarks
             pid = df.iloc[idx_df, 0]
@@ -316,9 +395,10 @@ class MainFrame(wx.Frame):
                     name, p_no, p_type, final_client, partner, amount, phase, plan_sign_time, sno, remarks, pid)
             # 显示SQL语句
             print(query_sql)
-            conn = sqlite3.connect('./data/lpm_c.db')
             conn.execute(query_sql)
             conn.commit()
+        # 关闭数据库连接
+        conn.close()
         # step5: 显示提示信息
         wx.MessageBox("项目信息已导入中心数据库！", "数据导入", wx.OK | wx.ICON_INFORMATION)
 
@@ -337,9 +417,10 @@ class MainFrame(wx.Frame):
         query_sql = "SELECT * FROM T_Staffs"
         cursor = conn.execute(query_sql)
         df_staff = pd.DataFrame(cursor.fetchall())
-        df_staff.columns = ["SNO", "姓名", "性别", "身份证号", "电子邮件", "移动电话", "办公电话", "分支机构", "部门", "职位", "任命职务","备注","人员类别"]
+        df_staff.columns = ["SNO", "姓名", "性别", "身份证号", "电子邮件", "移动电话", "办公电话", "分支机构", "部门", "职位", "任命职务", "备注", "人员类别"]
         print(df_staff)
-        df_output = df_staff[["SNO", "姓名", "性别", "身份证号", "电子邮件", "移动电话", "办公电话", "分支机构", "部门", "职位", "任命职务","人员类别","备注"]]
+        df_output = df_staff[
+            ["SNO", "姓名", "性别", "身份证号", "电子邮件", "移动电话", "办公电话", "分支机构", "部门", "职位", "任命职务", "人员类别", "备注"]]
         # step3：导出df中的数据至EXCEL文件中
         df_output.to_excel(pathname, index=False)
         # step4: 提示导出成功
@@ -357,15 +438,15 @@ class MainFrame(wx.Frame):
         # step2：读入EXCEL文件至pandas中，依次扫描每行数据并根据情况写入中心数据库
         # 若找到对应的项目则用EXCEL文件中的数据整行覆盖中心数据库对应条目
         # 若发现NEW标识或PID为空，则将EXCEL文件中的数据整行添加到中心数据库中
-        df = pd.read_excel(pathname)
+        df = pd.read_excel(pathname, dtype={"SNO": str, "移动电话":str, "备注": str})
         # step3：对dataframe中的数据进行预处理，主要是去除重复的数据行、日期型数据进行字符串转化（YYYY-MM-DD)
-
-        # print(df)
+        df.fillna("",inplace=True)
+        print(df)
         # step4: 扫描预处理后的df,若标志为NEW，则添加本行记录至中心数据库中，否则更新中心数据库中的信息
 
         for idx_df in range(df.shape[0]):
-            # T_Projects表的结构：pid,name,p_no,p_type,final_client,partner,amount,phase,plan_sign_time,sno,remarks
-            sno = df.iloc[idx_df, 0]
+        # T_Projects表的结构：pid,name,p_no,p_type,final_client,partner,amount,phase,plan_sign_time,sno,remarks
+            sno = str(df.iloc[idx_df, 0])
             name = df.iloc[idx_df, 1]
             gender = df.iloc[idx_df, 2]
             id_number = df.iloc[idx_df, 3]
@@ -375,23 +456,24 @@ class MainFrame(wx.Frame):
             branch = df.iloc[idx_df, 7]
             dept = df.iloc[idx_df, 8]
             post = df.iloc[idx_df, 9]
-            title = df.iloc[idx_df,10]
-            s_type = df.iloc[idx_df,11]
+            title = df.iloc[idx_df, 10]
+            s_type = df.iloc[idx_df, 11]
             remarks = df.iloc[idx_df, 12]
-            print(s_type,remarks)
+
             if sno == "NEW":
-                # 用户备注中提取新的人员编号
+            # 用户备注中提取新的人员编号
                 sno = remarks
                 # 构建SQL语句：INSERT
-                query_sql = "INSERT INTO T_Staffs (sno,name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks) values ('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')" % (sno,name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks)
+                query_sql = "INSERT INTO T_Staffs (sno,name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks) values ('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')" % (sno, name, gender, id_number, email, cell_phone, office_tel, branch, dept, post, title, s_type, remarks)
             else:
                 # 构建SQL语句：UPDATE
-                query_sql = "UPDATE T_Staffs SET name='%s',gender='%s',id_number='%s',email='%s',cell_phone='%s',office_tel='%s',branch='%s',dept='%s',post='%s',title='%s',s_type='%s',remarks='%s' WHERE sno='%s'" % (name,gender,id_number,email,cell_phone,office_tel,branch,dept,post,title,s_type,remarks, sno)
+                query_sql = "UPDATE T_Staffs SET name='%s',gender='%s',id_number='%s',email='%s',cell_phone='%s',office_tel='%s',branch='%s',dept='%s',post='%s',title='%s',s_type='%s',remarks='%s' WHERE sno='%s'" % (name, gender, id_number, email, cell_phone, office_tel, branch, dept, post, title, s_type, remarks, sno)
             # 显示SQL语句
             print(query_sql)
             conn = sqlite3.connect('./data/lpm_c.db')
             conn.execute(query_sql)
             conn.commit()
+            conn.close()
         # step5: 显示提示信息
         wx.MessageBox("项目信息已导入中心数据库！", "数据导入", wx.OK | wx.ICON_INFORMATION)
 
