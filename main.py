@@ -3,6 +3,7 @@ import wx.html2
 import UI
 from LPMAddNewSellerDlg import LPMAddNewSellerDlg
 from LPMGoOutRecodeCheckkDlg import LPMGoOutRecodeCheckkDlg
+from LPMSelectStaffDlg import LPMSelectStaffDlg
 import sqlite3
 import pandas as pd
 import os
@@ -130,6 +131,10 @@ class MainFrame(wx.Frame):
         sqlExecItem = toolsMenu.Append(wx.ID_ANY, "SQL执行", "对当前数据库直接执行SQL语句")
         # 5.2 外出记录单较验菜单项
         gooutRecChkItem = toolsMenu.Append(wx.ID_ANY, "外出记录单较验", "比对外出记录单中登记的拜访单位与登记地址")
+        # 菜单分隔线
+        toolsMenu.AppendSeparator()
+        # 5.3 代码测试菜单项
+        testItem = toolsMenu.Append(wx.ID_ANY,"代码测试","用于开发过程中代码测试的快捷入口")
 
         # 6.帮助菜单
         helpMenu = wx.Menu()
@@ -170,11 +175,19 @@ class MainFrame(wx.Frame):
 
         # 5.工具菜单
         self.Bind(wx.EVT_MENU, self.OnGoOutCheck, gooutRecChkItem)
-
+        self.Bind(wx.EVT_MENU, self.OnTest, testItem)
         # 6.帮助菜单
         self.Bind(wx.EVT_MENU, self.OnAbout, aboutItem)
 
     ############################## EVENT DEFINE ##############################
+
+    def OnTest(self,event):
+        selectStaffDlg = LPMSelectStaffDlg(self)
+        # 显示对话框
+        selectStaffDlg.ShowModal()
+
+
+
     def OnExit(self, event):
         self.Close(True)
 
